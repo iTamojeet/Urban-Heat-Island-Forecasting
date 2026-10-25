@@ -6,3 +6,4 @@ pandas
 matplotlib
 torch
 geedim
+scikit-learn
