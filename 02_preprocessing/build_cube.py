@@ -20,6 +20,7 @@ import config as C
 FACTOR = 4            # 30 m -> 120 m
 MIN_VALID_BLOCK = 0.5  # min fraction of valid 30 m pixels per 120 m cell
 COLD_OUTLIER = 12.0   # degC below the month's spatial median => masked
+MAX_OUTLIER_FRAC = 0.05  # month dropped if more of its valid pixels are outliers
 TRAIN_END = 2022
 BLOCK = 40            # cells per spatial block side (4.8 km)
 TEST_BLOCK_FRAC = 0.2
@@ -44,6 +45,8 @@ def slope(l, n):
 
 usable = pd.read_csv(C.ROOT / "data" / "interim" / "usable_months.csv")
 T = len(usable)
+use = usable.usable.values.copy()
+dropped = []
 keys = [f"{r.year}-{r.month:02d}" for r in usable.itertuples()]
 
 first = next(C.LANDSAT_DIR.glob("landsat_*.tif"))
@@ -57,7 +60,7 @@ nobs = np.zeros_like(lst)
 masked_cnt = {}
 
 for i, r in enumerate(usable.itertuples()):
-    if not r.usable:
+    if not use[i]:
         continue
     with rasterio.open(C.LANDSAT_DIR / f"landsat_{r.year}_{r.month:02d}.tif") as s:
         a = s.read().astype(np.float32)
@@ -65,6 +68,10 @@ for i, r in enumerate(usable.itertuples()):
     n = np.where(a[1] == C.NODATA, np.nan, a[1] / C.NDVI_FACTOR)
     bad = l < (np.nanmedian(l) - COLD_OUTLIER)
     masked_cnt[keys[i]] = int(bad.sum())
+    if bad.sum() / max(np.isfinite(l).sum(), 1) > MAX_OUTLIER_FRAC:
+        use[i] = False
+        dropped.append(keys[i])
+        continue
     l[bad] = np.nan
     n[np.isnan(l)] = np.nan
     lst[i], ndvi[i], nobs[i] = block_mean(l), block_mean(n), block_mean(a[2])
@@ -82,7 +89,7 @@ era_arr = np.stack([era.skin_temperature - 273.15, era.temperature_2m - 273.15,
 # Per-image spatial NDVI-LST slope on train years.
 rows = []
 for i, r in enumerate(usable.itertuples()):
-    if r.usable and r.year <= TRAIN_END:
+    if use[i] and r.year <= TRAIN_END:
         sl, rr, nn = slope(lst[i], ndvi[i])
         rows.append(dict(year=r.year, month=r.month, slope_per_ndvi=sl, r=rr, n=nn))
 sl_df = pd.DataFrame(rows)
@@ -99,7 +106,7 @@ test_cell = np.isin(block_id, test_ids) & land
 out = C.ROOT / "data" / "processed"
 out.mkdir(parents=True, exist_ok=True)
 np.savez_compressed(out / "cube.npz", lst=lst, ndvi=ndvi, nobs=nobs,
-                    usable=usable.usable.values, dates=np.array(keys), era=era_arr,
+                    usable=use, dates=np.array(keys), era=era_arr,
                     era_names=np.array(["skin_T_C", "t2m_C", "precip_mm"]), land=land,
                     block_id=block_id, test_cell=test_cell,
                     origin_xy=np.array([x0, y0]), res=FACTOR * C.SCALE)
@@ -107,10 +114,10 @@ sl_df.round(4).to_csv(out / "ndvi_lst_slopes_train.csv", index=False)
 
 # Figure: mean Mar-May LST, mean NDVI, mean slope by calendar month.
 mo = usable.month.values
-spring = usable.usable.values & np.isin(mo, [3, 4, 5])
+spring = use & np.isin(mo, [3, 4, 5])
 fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 for a_, d, t, cm in [(ax[0], np.nanmean(lst[spring], 0), "Mean LST, Mar-May (degC)", "inferno"),
-                     (ax[1], np.nanmean(ndvi[usable.usable.values], 0), "Mean NDVI", "YlGn")]:
+                     (ax[1], np.nanmean(ndvi[use], 0), "Mean NDVI", "YlGn")]:
     im = a_.imshow(d, cmap=cm)
     a_.set_title(t)
     a_.axis("off")
@@ -122,8 +129,9 @@ ax[2].set_title("Empirical NDVI-LST slope")
 fig.tight_layout()
 fig.savefig(C.ROOT / "docs" / "figures" / "stage2_overview.png", dpi=200)
 
-print(f"Cube {lst.shape}  usable months {int(usable.usable.sum())}  "
+print(f"Cube {lst.shape}  usable months {int(use.sum())}  "
       f"land cells {int(land.sum())} ({land.mean():.0%})")
+print("Dropped for cloud contamination:", dropped)
 print("Cold-outlier pixels masked (top 8):",
       sorted(masked_cnt.items(), key=lambda kv: -kv[1])[:8])
 print(f"Spatial blocks: {len(ids)} land blocks, {len(test_ids)} held out "
