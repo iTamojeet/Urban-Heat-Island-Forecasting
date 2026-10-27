@@ -29,3 +29,19 @@
 **Temporal split**: train on earlier years and test on later ones, so no future information leaks into training.
 
 **ST_QA**: Landsat Level-2 per-pixel surface temperature uncertainty, in units of 0.01 K.
+
+**Anomaly**: a value minus its cell-and-calendar-month climatology from the training years.
+
+**Cross-sectional slope**: slope of LST on NDVI across cells within one month. It mixes the effect of vegetation with everything correlated with it (built form, imperviousness, moisture).
+
+**Local response**: the model's change in LST for a change in a cell's own NDVI while the city-wide monthly mean is held fixed. The quantity relevant to greening scenarios.
+
+**Hierarchical (two-level) model**: LST = climatology + month-level anomaly (from ERA5, linear, about 55 training months) + within-month spatial anomaly (from NDVI and cell context, many pixels).
+
+**Month-cluster bootstrap**: resampling whole months with replacement, because pixels within a month share weather and overpass conditions and are not independent.
+
+**Held-out spatial blocks**: 4.8 km blocks excluded from model fitting to test generalisation to unseen locations.
+
+**JRC Global Surface Water occurrence**: percent of time a pixel was water, used to mask rivers, ponds and wetlands.
+
+**Attenuation bias**: shrinkage of a regression slope towards zero caused by noise in the predictor (here NDVI).

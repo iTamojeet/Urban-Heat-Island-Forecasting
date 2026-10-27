@@ -35,6 +35,8 @@ slopes = pd.read_csv(PROC / "ndvi_lst_slopes_train.csv").groupby("month").slope_
 te = df[df.year.isin(TEST_YEARS) & df.ndvi_t.notna() & df.an_t.notna()].copy()
 te["xsl"] = te.month.map(slopes)
 te = te[te.xsl.notna()]
+te["season"] = te.month.map({1: "Jan-Feb", 2: "Jan-Feb", 3: "Mar-May", 4: "Mar-May",
+                              5: "Mar-May", 10: "Oct-Dec", 11: "Oct-Dec", 12: "Oct-Dec"})
 te["grp"] = pd.qcut(te.cell_ndvi, 3, labels=["low NDVI", "mid NDVI", "high NDVI"])
 
 
@@ -49,12 +51,13 @@ for p in SCENARIOS:
     d = te.ndvi_t * p
     s = te.copy()
     s["ndvi_t"], s["nd_c"], s["an_c"] = te.ndvi_t + d, te.nd_c + d, te.an_c + d
-    res = pd.DataFrame({"grp": te.grp.values, "dNDVI": d.values,
+    res = pd.DataFrame({"grp": te.grp.values, "season": te.season.values, "dNDVI": d.values,
                         "gbm": gbm.predict(s[feats]) - base_g,
                         "linear_local": lin(s) - base_l,
                         "cross_section": (te.xsl * d).values})
     res["gbm_cools"] = res.gbm < 0
-    for name, sub in [("all", res)] + list(res.groupby("grp")):
+    for name, sub in ([("all", res)] + list(res.groupby("grp"))
+                      + [(k, v) for k, v in res.groupby("season")]):
         rows.append(dict(scenario=f"+{int(p * 100)}%", group=name, dNDVI=sub.dNDVI.mean(),
                          gbm=sub.gbm.mean(), linear_local=sub.linear_local.mean(),
                          cross_section=sub.cross_section.mean(),

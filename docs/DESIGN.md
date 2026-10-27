@@ -1,6 +1,6 @@
 # Design: Urban Heat Island Forecasting (revised after Stage 3-4 results)
 
-Author: Tamojeet Pal, @iTamojeet
+Author: Tamojeet (@iTamojeet)
 
 ## Research question
 
