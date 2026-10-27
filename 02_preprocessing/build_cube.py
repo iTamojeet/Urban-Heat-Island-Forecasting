@@ -56,6 +56,16 @@ with rasterio.open(first) as s:
     full_shape = (s.height, s.width)
     x0, y0 = s.transform.c, s.transform.f
 
+# 30 m water pixels are masked BEFORE aggregation so shoreline cells reflect land only.
+occ_path = C.RAW_DIR / "water_occurrence.tif"
+water30 = None
+if occ_path.exists():
+    with rasterio.open(occ_path) as s2:
+        water30 = s2.read(1) >= WATER_OCC
+    assert water30.shape == full_shape, f"water grid {water30.shape} != {full_shape}"
+else:
+    print("WARNING: water_occurrence.tif missing; using NDVI rule only")
+
 lst = np.full((T, H, W), np.nan, np.float32)
 ndvi = np.full_like(lst, np.nan)
 nobs = np.zeros_like(lst)
@@ -68,6 +78,9 @@ for i, r in enumerate(usable.itertuples()):
         a = s.read().astype(np.float32)
     l = np.where(a[0] == C.NODATA, np.nan, a[0] / C.LST_FACTOR)
     n = np.where(a[1] == C.NODATA, np.nan, a[1] / C.NDVI_FACTOR)
+    if water30 is not None:
+        l[water30] = np.nan
+        n[water30] = np.nan
     bad = l < (np.nanmedian(l) - COLD_OUTLIER)
     masked_cnt[keys[i]] = int(bad.sum())
     if bad.sum() / max(np.isfinite(l).sum(), 1) > MAX_OUTLIER_FRAC:
@@ -81,17 +94,11 @@ for i, r in enumerate(usable.itertuples()):
 # Land mask: NDVI < 0 rule plus JRC water occurrence (ponds, wetlands, river).
 med_ndvi = np.nanmedian(ndvi, axis=0)
 land = np.isfinite(med_ndvi) & (med_ndvi >= 0)
-occ_path = C.RAW_DIR / "water_occurrence.tif"
 n_water_extra = 0
-if occ_path.exists():
-    with rasterio.open(occ_path) as s:
-        occ = s.read(1).astype(np.float32)
-    assert occ.shape == full_shape, f"water grid {occ.shape} != {full_shape}"
-    water_cell = block_mean((occ >= WATER_OCC).astype(np.float32), min_frac=0) >= WATER_FRAC
+if water30 is not None:
+    water_cell = block_mean(water30.astype(np.float32), min_frac=0) >= WATER_FRAC
     n_water_extra = int((land & water_cell).sum())
     land &= ~water_cell
-else:
-    print("WARNING: water_occurrence.tif missing; using NDVI rule only")
 lst[:, ~land], ndvi[:, ~land] = np.nan, np.nan
 
 # ERA5 aligned to the month axis (degC, mm).
