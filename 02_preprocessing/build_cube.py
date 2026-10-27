@@ -25,6 +25,7 @@ TRAIN_END = 2022
 BLOCK = 40            # cells per spatial block side (4.8 km)
 TEST_BLOCK_FRAC = 0.2
 SEED = 42
+WATER_OCC, WATER_FRAC = 25, 0.3  # JRC occurrence >= 25 %; cell water if >= 30 % of its pixels
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
@@ -52,6 +53,7 @@ keys = [f"{r.year}-{r.month:02d}" for r in usable.itertuples()]
 first = next(C.LANDSAT_DIR.glob("landsat_*.tif"))
 with rasterio.open(first) as s:
     H, W = s.height // FACTOR, s.width // FACTOR
+    full_shape = (s.height, s.width)
     x0, y0 = s.transform.c, s.transform.f
 
 lst = np.full((T, H, W), np.nan, np.float32)
@@ -76,9 +78,20 @@ for i, r in enumerate(usable.itertuples()):
     n[np.isnan(l)] = np.nan
     lst[i], ndvi[i], nobs[i] = block_mean(l), block_mean(n), block_mean(a[2])
 
-# Land mask: water has negative NDVI; cells never observed are invalid.
+# Land mask: NDVI < 0 rule plus JRC water occurrence (ponds, wetlands, river).
 med_ndvi = np.nanmedian(ndvi, axis=0)
 land = np.isfinite(med_ndvi) & (med_ndvi >= 0)
+occ_path = C.RAW_DIR / "water_occurrence.tif"
+n_water_extra = 0
+if occ_path.exists():
+    with rasterio.open(occ_path) as s:
+        occ = s.read(1).astype(np.float32)
+    assert occ.shape == full_shape, f"water grid {occ.shape} != {full_shape}"
+    water_cell = block_mean((occ >= WATER_OCC).astype(np.float32), min_frac=0) >= WATER_FRAC
+    n_water_extra = int((land & water_cell).sum())
+    land &= ~water_cell
+else:
+    print("WARNING: water_occurrence.tif missing; using NDVI rule only")
 lst[:, ~land], ndvi[:, ~land] = np.nan, np.nan
 
 # ERA5 aligned to the month axis (degC, mm).
@@ -131,6 +144,7 @@ fig.savefig(C.ROOT / "docs" / "figures" / "stage2_overview.png", dpi=200)
 
 print(f"Cube {lst.shape}  usable months {int(use.sum())}  "
       f"land cells {int(land.sum())} ({land.mean():.0%})")
+print(f"Extra cells removed by JRC water mask: {n_water_extra}")
 print("Dropped for cloud contamination:", dropped)
 print("Cold-outlier pixels masked (top 8):",
       sorted(masked_cnt.items(), key=lambda kv: -kv[1])[:8])

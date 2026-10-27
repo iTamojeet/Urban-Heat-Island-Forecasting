@@ -1,4 +1,4 @@
-"""Stage 6: local NDVI scenarios on test-year rows (2024-25).
+"""Stage 5: local NDVI scenarios on test-year rows (2024-25).
 
 Scenario: NDVI of a cell rises by p% of its own value while the city-wide
 monthly mean is held fixed (local greening). Only the within-month spatial
@@ -58,6 +58,9 @@ for p in SCENARIOS:
         rows.append(dict(scenario=f"+{int(p * 100)}%", group=name, dNDVI=sub.dNDVI.mean(),
                          gbm=sub.gbm.mean(), linear_local=sub.linear_local.mean(),
                          cross_section=sub.cross_section.mean(),
+                         gbm_per01=0.1 * sub.gbm.mean() / sub.dNDVI.mean(),
+                         lin_per01=0.1 * sub.linear_local.mean() / sub.dNDVI.mean(),
+                         xs_per01=0.1 * sub.cross_section.mean() / sub.dNDVI.mean(),
                          pct_cells_gbm_cools=100 * sub.gbm_cools.mean()))
 out = pd.DataFrame(rows).round(3)
 print(out.to_string(index=False))

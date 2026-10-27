@@ -1,30 +1,30 @@
-# Design: Urban Heat Island Forecasting
+# Design: Urban Heat Island Forecasting (revised after Stage 3-4 results)
 
 Author: Tamojeet Pal, @iTamojeet
 
 ## Research question
 
-Does a sequence model over monthly vegetation and meteorological inputs forecast next-month land surface temperature (LST) better than simple baselines, and is its learned sensitivity to NDVI physically plausible?
+How does neighbourhood-scale land surface temperature (LST) in Kolkata respond to vegetation (NDVI), and how much of the cross-sectional NDVI-LST relationship survives as a local, within-cell response usable for greening scenarios?
 
-## Hypotheses
+## Hypotheses (revised)
 
-- H1: An LSTM using past LST, NDVI and meteorology reduces next-month LST error relative to persistence, seasonal climatology and a linear NDVI + meteorology regression, evaluated on held-out future years.
-- H2: The LSTM's response to counterfactual NDVI inputs is consistent in sign and rough magnitude with the empirical NDVI-LST slope measured directly from the observations. Counterfactual outputs are model sensitivity, not causal cooling estimates.
+- H1 (original, not supported): an LSTM using past LST, NDVI and meteorology beats persistence, climatology and linear baselines for next-month LST. Stage 3-4 showed past anomalies carry no skill beyond climatology and flexible models overfit month-level weather (about 55 independent training months).
+- H1' (reframed): a nonlinear model of the within-month spatial pattern, driven by NDVI and cell context, beats climatology and linear models on the spatial component of the error.
+- H2: the model's local NDVI response has the same sign as the empirical cross-sectional slope but a smaller magnitude, because the cross-sectional slope confounds NDVI with urban form. Scenario outputs are model sensitivity, not causal estimates.
 
-## Study area and data
+## Data
 
-- Area: Kolkata metropolitan core, bbox in `01_data_acquisition/config.py`, UTM 45N, 30 m grid.
-- Target and predictors: Landsat 8/9 Collection 2 Level-2 monthly median LST and NDVI, 2014-2025, with per-pixel clear-observation counts.
-- Dense covariates: ERA5-Land monthly area-mean skin temperature, 2 m temperature, precipitation.
-- Known limitation: monsoon cloud cover leaves June-September sparse. Stage 1 measures this; Stage 2 handles it with explicit missing-value masks rather than interpolating the target.
+Landsat 8/9 Collection 2 Level-2 monthly median LST and NDVI, 2014-2025, Kolkata core, 30 m aggregated to 120 m; ERA5-Land monthly area-mean skin temperature, 2 m temperature, precipitation; JRC Global Surface Water occurrence for the water mask. Usable months: about 88 of 144, with no usable July-September observations.
 
-## Stages
+## Stages (folder numbers)
 
-1. Data acquisition: monthly composites, ERA5-Land table, coverage log and coverage figure.
-2. Preprocessing and alignment: stack to a (time, band, y, x) array, aggregate to the analysis grid, build masks and the NDVI-LST empirical relationship, define spatial blocks.
-3. Baselines: persistence, seasonal climatology, linear regression.
-4. Training: LSTM on Colab T4, temporal split (train 2014-2022, validation 2023, test 2024-2025), checkpoints to Drive.
-5. Evaluation: error against baselines by season, spatial error maps, held-out spatial blocks as a secondary test.
-6. Counterfactual NDVI analysis: +10/+20/+30% NDVI scenarios, compared with the empirical slope from Stage 2.
+1. `01_data_acquisition`: monthly composites, ERA5, coverage log, water mask.
+2. `02_preprocessing`: usable-month filter, cold-outlier masking, 120 m cube, land mask, spatial blocks, per-image NDVI-LST slopes.
+3. `03_baselines`: persistence, climatology, linear, linear + concurrent ERA5; temporal split (train <= 2022, val 2023, test 2024-25) and held-out spatial blocks.
+4. `04_models`: gradient boosting (prev / concurrent inputs) and the two-level hierarchical model with an exact month/spatial error decomposition.
+5. `05_counterfactual`: local NDVI scenarios (+10/20/30%) and month-cluster bootstrap intervals for local vs cross-sectional response.
+6. Write-up: README, figures, limitations.
 
-Split years are provisional until the Stage 1 coverage figure is reviewed.
+## Known limitations
+
+No July-September coverage; monthly composites rest on 1-6 clear overpasses; month-level error dominates and is weakly predictable; NDVI measurement noise attenuates the local response while confounding inflates the cross-sectional one, so the truth lies between; no ground-truth for scenarios.
