@@ -77,3 +77,5 @@ After stage 01, `bash run_pipeline.sh` runs stages 02-06 and logs the output.
 ## Figures
 
 `docs/figures/`: `coverage_heatmap.png`, `stage2_overview.png`, `baselines.png`, `ndvi_scenarios.png`, `marmay_scenarios.png`.
+
+Copyright MIT License 2026.
