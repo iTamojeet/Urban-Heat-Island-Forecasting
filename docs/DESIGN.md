@@ -23,7 +23,9 @@ Landsat 8/9 Collection 2 Level-2 monthly median LST and NDVI, 2014-2025, Kolkata
 3. `03_baselines`: persistence, climatology, linear, linear + concurrent ERA5; temporal split (train <= 2022, val 2023, test 2024-25) and held-out spatial blocks.
 4. `04_models`: gradient boosting (prev / concurrent inputs) and the two-level hierarchical model with an exact month/spatial error decomposition.
 5. `05_counterfactual`: local NDVI scenarios (+10/20/30%) and month-cluster bootstrap intervals for local vs cross-sectional response.
-6. Write-up: README, figures, limitations.
+6. `06_cool_island`: distance-decay of vegetation-adjusted LST from water (inconclusive at 120 m; Landsat thermal footprint is 100 m).
+7. `07_interactive`: data export for the interactive greening map in `docs/map/`.
+8. Write-up: README, figures, limitations.
 
 ## Known limitations
 

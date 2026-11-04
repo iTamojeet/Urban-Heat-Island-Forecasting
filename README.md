@@ -2,6 +2,8 @@
 
 Author: Tamojeet (@iTamojeet)
 
+**Interactive map:** paint greening onto the March-May heat map and compare the evidence-based cooling with the naive estimate: [itamojeet.github.io/Urban-Heat-Island-Forecasting/map](https://itamojeet.github.io/Urban-Heat-Island-Forecasting/map/) (source: `docs/map/`).
+
 Landsat 8/9 land surface temperature (LST) and NDVI for the Kolkata core, 2014-2025, at 120 m. The project started as LSTM forecasting of LST and was reframed after the data showed what could and could not be learned. The result is an honest analysis of how strongly LST responds to local vegetation changes and how much the usual cross-sectional slope overstates it.
 
 ![Mar-May local greening scenarios](docs/figures/marmay_scenarios.png)
@@ -76,6 +78,10 @@ After stage 01, `bash run_pipeline.sh` runs stages 02-06 and logs the output.
 
 ## Figures
 
-`docs/figures/`: `coverage_heatmap.png`, `stage2_overview.png`, `baselines.png`, `ndvi_scenarios.png`, `marmay_scenarios.png`.
+`docs/figures/`: `coverage_heatmap.png`, `stage2_overview.png`, `baselines.png`, `ndvi_scenarios.png`, `marmay_scenarios.png`, `cool_island.png`.
 
-Copyright MIT License 2026.
+
+## License
+
+MIT License
+Copyright 2026.
